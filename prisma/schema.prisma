@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  QUOTED
+  WON
+  LOST
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  nameEn      String
+  nameZh      String
+  category    String
+  summaryEn   String
+  summaryZh   String
+  description String
+  priceMin    Int
+  moq         Int
+  leadTime    String
+  imageUrl    String
+  specs       Json
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  inquiryItems InquiryItem[]
+}
+
+model Customer {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  name        String
+  company     String?
+  phone       String?
+  country     String?
+  source      String    @default("website")
+  lastSeenAt  DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  inquiries   Inquiry[]
+  conversations Conversation[]
+}
+
+model Inquiry {
+  id            String        @id @default(cuid())
+  inquiryNo     String        @unique
+  customerId    String
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  status        InquiryStatus @default(NEW)
+  subject       String
+  message       String
+  quantity      Int?
+  targetPrice   Float?
+  destination   String?
+  incoterm      String?
+  language      String        @default("en")
+  priority      Int           @default(2)
+  intentScore   Int?
+  intentLevel   String?
+  intentSummary String?
+  assignedTo    String?
+  nextFollowUp  DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  items         InquiryItem[]
+  emails        EmailLog[]
+  notes         Note[]
+  events        InquiryEvent[]
+}
+
+model InquiryEvent {
+  id              String   @id @default(cuid())
+  inquiryId       String
+  inquiry         Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  type            String
+  titleEn         String
+  titleZh         String
+  descriptionEn   String
+  descriptionZh   String
+  visibleToBuyer  Boolean  @default(true)
+  createdAt       DateTime @default(now())
+}
+
+model InquiryItem {
+  id        String  @id @default(cuid())
+  inquiryId String
+  inquiry   Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int?
+}
+
+model Conversation {
+  id         String    @id @default(cuid())
+  sessionId  String    @unique
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  language   String    @default("en")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  messages   ChatMessage[]
+}
+
+model ChatMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String
+  content        String
+  createdAt      DateTime     @default(now())
+}
+
+model EmailLog {
+  id          String      @id @default(cuid())
+  inquiryId   String
+  inquiry     Inquiry     @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  type        String
+  recipient   String
+  subject     String
+  providerId  String?
+  status      EmailStatus @default(PENDING)
+  error       String?
+  createdAt   DateTime    @default(now())
+  sentAt      DateTime?
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  inquiryId String
+  inquiry   Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  author    String
+  content   String
+  createdAt DateTime @default(now())
+}
